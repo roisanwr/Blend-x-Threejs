@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Three.js 3D Forklift Simulator — Interactive Controller</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    body {
+      margin: 0;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #0f141c;
+      color: #f8fafc;
+    }
+    #canvas-container {
+      width: 100vw;
+      height: 100vh;
+      display: block;
+      position: relative;
+      cursor: grab;
+    }
+    #canvas-container:active {
+      cursor: grabbing;
+    }
+    #ui-panel {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      background: rgba(15, 20, 28, 0.92);
+      backdrop-filter: blur(14px);
+      padding: 16px 18px;
+      border-radius: 14px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.65);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      width: 330px;
+      max-height: calc(100vh - 32px);
+      overflow-y: auto;
+      z-index: 10;
+    }
+    .header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+    h2 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 800;
+      color: #f59e0b;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .status-badge {
+      display: inline-block;
+      padding: 4px 9px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      background: #1e293b;
+      color: #38bdf8;
+      border: 1px solid rgba(56, 189, 248, 0.25);
+    }
+    .telemetry-bar {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 6px;
+      background: rgba(30, 41, 59, 0.75);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      padding: 8px 10px;
+      margin: 8px 0 10px 0;
+      font-size: 11px;
+    }
+    .telemetry-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .telemetry-label {
+      color: #94a3b8;
+      font-size: 10px;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+    .telemetry-val {
+      color: #f8fafc;
+      font-weight: 700;
+      font-family: monospace;
+      font-size: 12px;
+    }
+    .section-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #94a3b8;
+      margin: 12px 0 6px 0;
+      font-weight: 700;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .dpad-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      grid-template-rows: auto auto;
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+    .dpad-grid .btn-fwd {
+      grid-column: 2;
+      grid-row: 1;
+    }
+    .dpad-grid .btn-left {
+      grid-column: 1;
+      grid-row: 2;
+    }
+    .dpad-grid .btn-rev {
+      grid-column: 2;
+      grid-row: 2;
+    }
+    .dpad-grid .btn-right {
+      grid-column: 3;
+      grid-row: 2;
+    }
+    .btn-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+    button {
+      background: #1e293b;
+      color: #f1f5f9;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 8px;
+      padding: 9px 8px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.12s ease;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+    }
+    button .key-hint {
+      font-size: 10px;
+      font-weight: 500;
+      color: #94a3b8;
+    }
+    button:hover {
+      background: #334155;
+      border-color: #f59e0b;
+    }
+    button:active, button.active-pressed {
+      background: #f59e0b;
+      color: #0f172a;
+      border-color: #fbbf24;
+      transform: scale(0.97);
+    }
+    button:active .key-hint, button.active-pressed .key-hint {
+      color: #1e293b;
+    }
+    .btn-primary {
+      background: rgba(245, 158, 11, 0.16);
+      border-color: rgba(245, 158, 11, 0.45);
+      color: #fbbf24;
+    }
+    .btn-secondary {
+      flex-direction: row;
+      gap: 6px;
+      padding: 7px 10px;
+      font-size: 11px;
+    }
+    .slider-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 6px 0;
+      background: rgba(30, 41, 59, 0.6);
+      padding: 6px 10px;
+      border-radius: 8px;
+    }
+    .slider-row input[type="range"] {
+      flex: 1;
+      accent-color: #f59e0b;
+      cursor: pointer;
+    }
+    .color-picker {
+      display: flex;
+      gap: 9px;
+      margin-top: 6px;
+      align-items: center;
+    }
+    .color-dot {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      transition: transform 0.15s, border-color 0.15s;
+    }
+    .color-dot:hover, .color-dot.selected {
+      transform: scale(1.18);
+      border-color: #fff;
+      box-shadow: 0 0 8px rgba(255, 255, 255, 0.4);
+    }
+    .help-footer {
+      margin-top: 10px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      font-size: 11px;
+      color: #94a3b8;
+      line-height: 1.45;
+    }
+    #hud-toast {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(245, 158, 11, 0.45);
+      color: #f8fafc;
+      padding: 8px 16px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      z-index: 10;
+      pointer-events: none;
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
+    }
+  </style>
+</head>
+<body>
+  <div id="canvas-container"></div>
+
+  <div id="ui-panel">
+    <div class="header-row">
+      <h2>🚜 Forklift 3D Control</h2>
+      <span class="status-badge" id="status-badge">Memuat 3D...</span>
+    </div>
+
+    <div class="telemetry-bar">
+      <div class="telemetry-item">
+        <span class="telemetry-label">Posisi (X, Z)</span>
+        <span class="telemetry-val" id="tel-pos">0.0, 0.0</span>
+      </div>
+      <div class="telemetry-item">
+        <span class="telemetry-label">Tinggi Garpu</span>
+        <span class="telemetry-val" id="tel-fork">0.05 m</span>
+      </div>
+      <div class="telemetry-item">
+        <span class="telemetry-label">Status Pallet</span>
+        <span class="telemetry-val" id="tel-pallet" style="color:#fbbf24;">Siap Angkat</span>
+      </div>
+    </div>
+
+    <div class="section-title">
+      <span>Kemudi & Navigasi (Jalan & Belok)</span>
+      <span style="color:#f59e0b;font-size:10px;">Klik / Tahan / WASD</span>
+    </div>
+    <div class="dpad-grid">
+      <button id="btn-drive-fwd" class="btn-fwd btn-primary">
+        <span>▲ Maju</span>
+        <span class="key-hint">W / ↑</span>
+      </button>
+      <button id="btn-turn-left" class="btn-left">
+        <span>◄ Belok Kiri</span>
+        <span class="key-hint">A / ←</span>
+      </button>
+      <button id="btn-drive-rev" class="btn-rev">
+        <span>▼ Mundur</span>
+        <span class="key-hint">S / ↓</span>
+      </button>
+      <button id="btn-turn-right" class="btn-right">
+        <span>► Belok Kanan</span>
+        <span class="key-hint">D / →</span>
+      </button>
+    </div>
+
+    <div class="section-title">
+      <span>Kontrol Garpu & Pallet (Naik / Turun)</span>
+      <span style="color:#38bdf8;font-size:10px;">Q & E / Slider</span>
+    </div>
+    <div class="btn-grid">
+      <button id="btn-lift-up" class="btn-primary">
+        <span>▲ Naikkan Garpu</span>
+        <span class="key-hint">Q / Space (Angkat Pallet)</span>
+      </button>
+      <button id="btn-lift-down">
+        <span>▼ Turunkan Garpu</span>
+        <span class="key-hint">E / Shift (Taruh Pallet)</span>
+      </button>
+    </div>
+
+    <div class="slider-row">
+      <span style="font-size:11px;color:#cbd5e1;font-weight:600;">Level Garpu:</span>
+      <input type="range" id="fork-slider" min="0.05" max="1.40" step="0.01" value="0.05">
+    </div>
+
+    <div class="btn-grid" style="margin-top:6px;">
+      <button id="btn-snap-pallet" class="btn-secondary" title="Kaitkan atau lepaskan pallet secara instan ke garpu">
+        📦 Ambil / Lepas Pallet
+      </button>
+      <button id="btn-reset" class="btn-secondary" title="Kembalikan posisi forklift dan pallet ke titik awal">
+        🔄 Reset Posisi
+      </button>
+    </div>
+
+    <div class="section-title">Warna Body & Kamera</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <div class="color-picker">
+        <div class="color-dot selected" style="background: #f59e0b;" data-color="#f59e0b" title="Industrial Yellow"></div>
+        <div class="color-dot" style="background: #ea580c;" data-color="#ea580c" title="Safety Orange"></div>
+        <div class="color-dot" style="background: #2563eb;" data-color="#2563eb" title="Royal Blue"></div>
+        <div class="color-dot" style="background: #dc2626;" data-color="#dc2626" title="Crimson Red"></div>
+        <div class="color-dot" style="background: #16a34a;" data-color="#16a34a" title="Kelly Green"></div>
+      </div>
+      <button id="btn-cam-follow" class="btn-secondary" style="padding:6px 9px;">
+        🎥 Follow: ON
+      </button>
+    </div>
+
+    <div class="help-footer">
+      💡 <b>Tips:</b> Gunakan tombol di atas atau keyboard <b>W, A, S, D</b> / <b>Panah</b> untuk maju, mundur, belok kiri & kanan. Tekan <b>Q / E</b> untuk menaikkan & menurunkan pallet. Geser layar dengan mouse untuk memutar kamera 3D.
+    </div>
+  </div>
+
+  <div id="hud-toast">🚜 Forklift Siap! Tekan ▲ Naikkan Garpu (Q) untuk mengangkat pallet, lalu W/A/S/D untuk jalan & belok.</div>
+
+  <script src="./bundle.js?v=2"></script>
+</body>
+</html>
